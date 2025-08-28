@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实际路由测试页面</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; }
+        .test-button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .test-button:hover { background: #0056b3; }
+        .result { margin: 10px 0; padding: 10px; background: #f8f9fa; border-left: 4px solid #007bff; }
+        .current-route { background: #e7f3ff; border-left: 4px solid #28a745; }
+        .auth-status { background: #fff3cd; border-left: 4px solid #ffc107; }
+    </style>
+</head>
+<body>
+    <h1>🚀 实际路由行为测试页面</h1>
+    
+    <div class="test-section">
+        <h2>📍 当前路由状态</h2>
+        <div id="current-route" class="result current-route">
+            当前路径: <span id="current-path">/</span>
+        </div>
+        <div id="auth-status" class="result auth-status">
+            认证状态: <span id="auth-text">检查中...</span>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🧪 路由跳转测试</h2>
+        <p>点击下面的按钮测试路由跳转：</p>
+        
+        <button class="test-button" onclick="navigateTo('/')">跳转到根路径 /</button>
+        <button class="test-button" onclick="navigateTo('/login')">跳转到登录页 /login</button>
+        <button class="test-button" onclick="navigateTo('/register')">跳转到注册页 /register</button>
+        <button class="test-button" onclick="navigateTo('/dashboard')">跳转到仪表板 /dashboard</button>
+        <button class="test-button" onclick="navigateTo('/projects')">跳转到项目管理 /projects</button>
+        
+        <div id="navigation-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🔐 认证状态管理</h2>
+        <p>模拟认证状态变化：</p>
+        
+        <button class="test-button" onclick="clearAuth()">清除认证状态</button>
+        <button class="test-button" onclick="setAuth()">设置认证状态</button>
+        <button class="test-button" onclick="simulateLogin()">模拟登录</button>
+        <button class="test-button" onclick="simulateLogout()">模拟登出</button>
+        
+        <div id="auth-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>📋 路由逻辑说明</h2>
+        <ul>
+            <li><strong>根路径 /</strong>: 应该根据认证状态重定向</li>
+            <li><strong>登录页 /login</strong>: 未认证用户可访问，已认证用户重定向到仪表板</li>
+            <li><strong>注册页 /register</strong>: 未认证用户可访问，已认证用户重定向到仪表板</li>
+            <li><strong>仪表板 /dashboard</strong>: 需要认证，未认证用户重定向到登录页</li>
+            <li><strong>项目管理 /projects</strong>: 需要认证，未认证用户重定向到登录页</li>
+        </ul>
+    </div>
+
+    <script>
+        // 模拟Vue Router的行为
+        let currentRoute = '/';
+        let isAuthenticated = false;
+        
+        // 初始化
+        function init() {
+            updateCurrentRoute();
+            updateAuthStatus();
+            checkAuthFromStorage();
+        }
+        
+        // 更新当前路由显示
+        function updateCurrentRoute() {
+            document.getElementById('current-path').textContent = currentRoute;
+        }
+        
+        // 更新认证状态显示
+        function updateAuthStatus() {
+            const authText = document.getElementById('auth-text');
+            if (isAuthenticated) {
+                authText.textContent = '✅ 已认证';
+                authText.style.color = 'green';
+            } else {
+                authText.textContent = '❌ 未认证';
+                authText.style.color = 'red';
+            }
+        }
+        
+        // 检查localStorage中的认证状态
+        function checkAuthFromStorage() {
+            const token = localStorage.getItem('token');
+            isAuthenticated = !!token;
+            updateAuthStatus();
+        }
+        
+        // 路由跳转逻辑（模拟Vue Router）
+        function navigateTo(path) {
+            const resultsDiv = document.getElementById('navigation-results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'result';
+            
+            resultDiv.innerHTML = `
+                <strong>尝试跳转到: ${path}</strong><br>
+                时间: ${new Date().toLocaleTimeString()}<br>
+                当前认证状态: ${isAuthenticated ? '已认证' : '未认证'}<br>
+            `;
+            
+            // 模拟路由守卫逻辑
+            if (path === '/') {
+                // 根路径重定向逻辑
+                if (isAuthenticated) {
+                    resultDiv.innerHTML += `<br>🔄 重定向到: /dashboard (已认证用户)`;
+                    currentRoute = '/dashboard';
+                } else {
+                    resultDiv.innerHTML += `<br>🔄 重定向到: /login (未认证用户)`;
+                    currentRoute = '/login';
+                }
+            } else if (path === '/login' || path === '/register') {
+                // 登录/注册页逻辑
+                if (isAuthenticated) {
+                    resultDiv.innerHTML += `<br>🔄 重定向到: /dashboard (已认证用户不能访问登录/注册页)`;
+                    currentRoute = '/dashboard';
+                } else {
+                    resultDiv.innerHTML += `<br>✅ 正常跳转到: ${path}`;
+                    currentRoute = path;
+                }
+            } else if (path === '/dashboard' || path === '/projects') {
+                // 需要认证的页面逻辑
+                if (isAuthenticated) {
+                    resultDiv.innerHTML += `<br>✅ 正常跳转到: ${path}`;
+                    currentRoute = path;
+                } else {
+                    resultDiv.innerHTML += `<br>🔄 重定向到: /login (未认证用户不能访问)`;
+                    currentRoute = '/login';
+                }
+            }
+            
+            resultsDiv.appendChild(resultDiv);
+            updateCurrentRoute();
+        }
+        
+        // 认证状态管理
+        function clearAuth() {
+            localStorage.removeItem('token');
+            isAuthenticated = false;
+            updateAuthStatus();
+            addAuthResult('清除认证状态成功');
+        }
+        
+        function setAuth() {
+            localStorage.setItem('token', 'test-token-123');
+            isAuthenticated = true;
+            updateAuthStatus();
+            addAuthResult('设置认证状态成功');
+        }
+        
+        function simulateLogin() {
+            localStorage.setItem('token', 'login-token-' + Date.now());
+            isAuthenticated = true;
+            updateAuthStatus();
+            addAuthResult('模拟登录成功');
+        }
+        
+        function simulateLogout() {
+            localStorage.removeItem('token');
+            isAuthenticated = false;
+            updateAuthStatus();
+            addAuthResult('模拟登出成功');
+        }
+        
+        function addAuthResult(message) {
+            const resultsDiv = document.getElementById('auth-results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = `
+                <strong>认证操作:</strong> ${message}<br>
+                时间: ${new Date().toLocaleTimeString()}<br>
+                新状态: ${isAuthenticated ? '已认证' : '未认证'}
+            `;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        // 页面加载时初始化
+        window.addEventListener('load', init);
+        
+        // 监听localStorage变化
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'token') {
+                checkAuthFromStorage();
+            }
+        });
+    </script>
+</body>
+</html>

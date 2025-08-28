@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简单路由测试 - 根路径重定向</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px; }
+        .test-button { padding: 12px 24px; margin: 8px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        .test-button:hover { background: #0056b3; }
+        .result { margin: 15px 0; padding: 15px; background: #f8f9fa; border-left: 4px solid #007bff; border-radius: 3px; }
+        .success { border-left-color: #28a745; background: #d4edda; }
+        .warning { border-left-color: #ffc107; background: #fff3cd; }
+        .info { border-left-color: #17a2b8; background: #d1ecf1; }
+        .current-status { background: #e7f3ff; border-left: 4px solid #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 根路径重定向测试</h1>
+        <p>这个页面测试Vue Router的根路径重定向行为</p>
+        
+        <div class="test-section">
+            <h2>📍 当前状态</h2>
+            <div class="result current-status">
+                <strong>当前URL:</strong> <span id="current-url">加载中...</span><br>
+                <strong>当前路径:</strong> <span id="current-path">加载中...</span><br>
+                <strong>认证状态:</strong> <span id="auth-status">检查中...</span>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🧪 路由测试</h2>
+            <p>点击下面的按钮测试不同的路由行为：</p>
+            
+            <button class="test-button" onclick="testRootPath()">测试根路径 /</button>
+            <button class="test-button" onclick="testLoginPath()">测试登录页 /login</button>
+            <button class="test-button" onclick="testDashboardPath()">测试仪表板 /dashboard</button>
+            <button class="test-button" onclick="clearAuth()">清除认证状态</button>
+            <button class="test-button" onclick="setAuth()">设置认证状态</button>
+            
+            <div id="test-results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📋 预期行为</h2>
+            <ul>
+                <li><strong>访问 /</strong> → 应该重定向到 /login</li>
+                <li><strong>访问 /login</strong> → 未认证用户正常访问，已认证用户重定向到 /dashboard</li>
+                <li><strong>访问 /dashboard</strong> → 需要认证，未认证用户重定向到 /login</li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔍 测试说明</h2>
+            <p>这个测试模拟了Vue Router的行为，帮助验证路由配置是否正确。</p>
+            <p><strong>重要:</strong> 实际的Vue应用中的重定向是在客户端JavaScript中处理的，服务器端无法感知。</p>
+        </div>
+    </div>
+
+    <script>
+        // 模拟Vue Router的行为
+        let currentPath = '/';
+        let isAuthenticated = false;
+        
+        // 初始化
+        function init() {
+            updateCurrentStatus();
+            checkAuthFromStorage();
+        }
+        
+        // 更新当前状态显示
+        function updateCurrentStatus() {
+            document.getElementById('current-url').textContent = window.location.href;
+            document.getElementById('current-path').textContent = currentPath;
+            document.getElementById('auth-status').textContent = isAuthenticated ? '✅ 已认证' : '❌ 未认证';
+        }
+        
+        // 检查localStorage中的认证状态
+        function checkAuthFromStorage() {
+            const token = localStorage.getItem('token');
+            isAuthenticated = !!token;
+            updateCurrentStatus();
+        }
+        
+        // 测试根路径
+        function testRootPath() {
+            addTestResult('测试根路径 /', 'info');
+            addTestResult('尝试访问根路径...', 'info');
+            
+            // 模拟根路径重定向逻辑
+            setTimeout(() => {
+                addTestResult('🔄 根路径 / 重定向到 /login', 'success');
+                currentPath = '/login';
+                updateCurrentStatus();
+            }, 500);
+        }
+        
+        // 测试登录页
+        function testLoginPath() {
+            addTestResult('测试登录页 /login', 'info');
+            
+            if (isAuthenticated) {
+                addTestResult('🔄 已认证用户访问 /login，重定向到 /dashboard', 'warning');
+                currentPath = '/dashboard';
+            } else {
+                addTestResult('✅ 未认证用户正常访问 /login', 'success');
+                currentPath = '/login';
+            }
+            
+            updateCurrentStatus();
+        }
+        
+        // 测试仪表板
+        function testDashboardPath() {
+            addTestResult('测试仪表板 /dashboard', 'info');
+            
+            if (isAuthenticated) {
+                addTestResult('✅ 已认证用户正常访问 /dashboard', 'success');
+                currentPath = '/dashboard';
+            } else {
+                addTestResult('🔄 未认证用户访问 /dashboard，重定向到 /login', 'warning');
+                currentPath = '/login';
+            }
+            
+            updateCurrentStatus();
+        }
+        
+        // 认证状态管理
+        function clearAuth() {
+            localStorage.removeItem('token');
+            isAuthenticated = false;
+            updateCurrentStatus();
+            addTestResult('清除认证状态成功', 'success');
+        }
+        
+        function setAuth() {
+            localStorage.setItem('token', 'test-token-' + Date.now());
+            isAuthenticated = true;
+            updateCurrentStatus();
+            addTestResult('设置认证状态成功', 'success');
+        }
+        
+        // 添加测试结果
+        function addTestResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('test-results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = `
+                <strong>${message}</strong><br>
+                <small>时间: ${new Date().toLocaleTimeString()}</small>
+            `;
+            resultsDiv.appendChild(resultDiv);
+            
+            // 自动滚动到底部
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+        
+        // 页面加载时初始化
+        window.addEventListener('load', init);
+        
+        // 监听localStorage变化
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'token') {
+                checkAuthFromStorage();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API测试页面</title>
+</head>
+<body>
+    <h1>API测试页面</h1>
+    <button onclick="testLogin()">测试登录API</button>
+    <button onclick="testDirectAPI()">直接测试API</button>
+    <div id="result"></div>
+
+    <script>
+        async function testLogin() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '正在测试登录...';
+            
+            try {
+                const response = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: '123@123.com',
+                        password: '123123'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `<h3>登录成功!</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `<h3>登录失败 (${response.status})</h3><pre>${errorText}</pre>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<h3>网络错误</h3><pre>${error.message}</pre>`;
+                console.error('Error:', error);
+            }
+        }
+
+        async function testDirectAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '正在直接测试API...';
+            
+            try {
+                const response = await fetch('http://192.168.4.130/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: '123@123.com',
+                        password: '123123'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `<h3>直接API调用成功!</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `<h3>直接API调用失败 (${response.status})</h3><pre>${errorText}</pre>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<h3>直接API调用网络错误</h3><pre>${error.message}</pre>`;
+                console.error('Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

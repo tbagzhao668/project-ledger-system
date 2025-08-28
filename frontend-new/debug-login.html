@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录调试页面</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { margin: 5px; padding: 10px; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>登录调试页面</h1>
+    
+    <div class="test-section">
+        <h3>1. 基本信息</h3>
+        <p><strong>当前URL:</strong> <span id="current-url"></span></p>
+        <p><strong>User Agent:</strong> <span id="user-agent"></span></p>
+        <p><strong>时间:</strong> <span id="current-time"></span></p>
+    </div>
+
+    <div class="test-section">
+        <h3>2. 网络连接测试</h3>
+        <button onclick="testNetwork()">测试网络连接</button>
+        <div id="network-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. API端点测试</h3>
+        <button onclick="testAPIEndpoints()">测试API端点</button>
+        <div id="api-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. 登录测试</h3>
+        <button onclick="testLogin()">测试登录</button>
+        <div id="login-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>5. 错误日志</h3>
+        <div id="error-log"></div>
+    </div>
+
+    <script>
+        // 显示基本信息
+        document.getElementById('current-url').textContent = window.location.href;
+        document.getElementById('user-agent').textContent = navigator.userAgent;
+        document.getElementById('current-time').textContent = new Date().toLocaleString();
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('error-log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div class="${type}">[${time}] ${message}</div>`;
+        }
+
+        async function testNetwork() {
+            const resultDiv = document.getElementById('network-result');
+            resultDiv.innerHTML = '<p class="info">正在测试网络连接...</p>';
+            
+            try {
+                // 测试基本连接
+                const response = await fetch('/');
+                if (response.ok) {
+                    resultDiv.innerHTML = '<p class="success">✅ 基本网络连接正常</p>';
+                    log('基本网络连接正常', 'success');
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ 基本网络连接失败: ${response.status}</p>`;
+                    log(`基本网络连接失败: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ 网络连接错误: ${error.message}</p>`;
+                log(`网络连接错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAPIEndpoints() {
+            const resultDiv = document.getElementById('api-result');
+            resultDiv.innerHTML = '<p class="info">正在测试API端点...</p>';
+            
+            const endpoints = [
+                '/api/v1/auth/login',
+                '/api/v1/auth/register',
+                '/api/v1/auth/me'
+            ];
+            
+            let results = '';
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(endpoint, { method: 'OPTIONS' });
+                    if (response.ok) {
+                        results += `<p class="success">✅ ${endpoint} - 可访问</p>`;
+                        log(`${endpoint} - 可访问`, 'success');
+                    } else {
+                        results += `<p class="error">❌ ${endpoint} - 状态: ${response.status}</p>`;
+                        log(`${endpoint} - 状态: ${response.status}`, 'error');
+                    }
+                } catch (error) {
+                    results += `<p class="error">❌ ${endpoint} - 错误: ${error.message}</p>`;
+                    log(`${endpoint} - 错误: ${error.message}`, 'error');
+                }
+            }
+            
+            resultDiv.innerHTML = results;
+        }
+
+        async function testLogin() {
+            const resultDiv = document.getElementById('login-result');
+            resultDiv.innerHTML = '<p class="info">正在测试登录...</p>';
+            
+            try {
+                log('开始登录测试', 'info');
+                
+                const response = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: '123@123.com',
+                        password: '123123'
+                    })
+                });
+                
+                log(`收到响应: ${response.status} ${response.statusText}`, 'info');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <p class="success">✅ 登录成功!</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    log('登录成功', 'success');
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `
+                        <p class="error">❌ 登录失败 (${response.status})</p>
+                        <pre>${errorText}</pre>
+                    `;
+                    log(`登录失败: ${response.status} - ${errorText}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <p class="error">❌ 网络错误</p>
+                    <pre>${error.message}</pre>
+                    <p><strong>错误类型:</strong> ${error.name}</p>
+                    <p><strong>错误堆栈:</strong></p>
+                    <pre>${error.stack}</pre>
+                `;
+                log(`网络错误: ${error.message}`, 'error');
+                console.error('详细错误信息:', error);
+            }
+        }
+
+        // 全局错误捕获
+        window.addEventListener('error', function(e) {
+            log(`全局错误: ${e.message}`, 'error');
+        });
+
+        window.addEventListener('unhandledrejection', function(e) {
+            log(`未处理的Promise拒绝: ${e.reason}`, 'error');
+        });
+    </script>
+</body>
+</html>

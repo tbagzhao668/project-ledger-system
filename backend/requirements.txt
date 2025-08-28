@@ -1,0 +1,47 @@
+# 工程项目流水账管理系统 - 后端依赖
+# FastAPI核心框架
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# 数据库相关
+sqlalchemy==2.0.23
+alembic==1.13.1
+asyncpg==0.29.0  # PostgreSQL异步驱动
+psycopg2-binary==2.9.9  # PostgreSQL同步驱动
+
+# Redis和缓存
+redis==4.6.0
+aioredis==2.0.1
+
+# 异步任务
+celery[redis]==5.3.4
+
+# 认证和安全
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+email-validator==2.1.0  # 邮箱验证
+
+# 数据处理和分析
+pandas==2.1.4
+plotly==5.17.0
+openpyxl==3.1.2  # Excel支持
+
+# 图像处理
+Pillow==10.1.0
+
+# HTTP客户端
+httpx==0.25.2
+
+# 文件操作
+aiofiles==23.2.1
+
+# 数据验证
+pydantic==2.5.1
+pydantic-settings==2.1.0
+
+# 开发和测试
+pytest==7.4.3
+pytest-asyncio==0.21.1
+black==23.11.0
+isort==5.12.0
