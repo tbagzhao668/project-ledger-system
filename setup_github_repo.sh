@@ -6,7 +6,7 @@
 echo "🚀 开始设置GitHub远程仓库..."
 
 # ===== 请修改以下变量 =====
-GITHUB_USERNAME="您的GitHub用户名"
+GITHUB_USERNAME="tbagzhao668"
 REPO_NAME="project-ledger-system"  # 或者您想要的仓库名
 # ===============================
 
