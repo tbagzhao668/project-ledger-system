@@ -232,11 +232,16 @@ async def update_tenant_status(
                     updated_at=func.now()
                 )
             )
-        # 如果启用租户，可以选择是否启用该租户下的用户
+        # 如果启用租户，同时启用该租户下的所有用户
         elif new_status == 'active':
-            # 这里可以选择是否自动启用用户，或者保持用户原有状态
-            # 目前实现是保持用户原有状态，管理员可以手动启用
-            pass
+            await db.execute(
+                update(User)
+                .where(User.tenant_id == tenant_id)
+                .values(
+                    is_active=True,
+                    updated_at=func.now()
+                )
+            )
         
         await db.commit()
         
@@ -250,7 +255,7 @@ async def update_tenant_status(
                 "old_status": old_status,
                 "new_status": new_status,
                 "reason": reason,
-                "users_affected": True if new_status == 'disabled' else False
+                "users_affected": True  # 无论是启用还是禁用，都会影响用户状态
             },
             request=request,
             current_user=current_user,
@@ -517,3 +522,279 @@ async def log_admin_operation(
     except Exception as e:
         logger.error(f"记录操作日志失败: {str(e)}")
         # 不抛出异常，避免影响主要业务逻辑
+
+@router.put("/tenants/{tenant_id}/users/{user_id}/status")
+async def update_user_status(
+    tenant_id: str,
+    user_id: str,
+    is_active: bool = Query(..., description="用户状态"),
+    reason: str = Query("", description="操作原因"),
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+    request: Request = None
+):
+    """更新用户状态（启用/禁用）"""
+    try:
+        # 检查租户是否存在
+        tenant_result = await db.execute(
+            select(Tenant).where(Tenant.id == tenant_id)
+        )
+        tenant = tenant_result.scalar_one_or_none()
+        
+        if not tenant:
+            raise HTTPException(status_code=404, detail="租户不存在")
+        
+        # 检查用户是否存在且属于该租户
+        user_result = await db.execute(
+            select(User).where(
+                User.id == user_id,
+                User.tenant_id == tenant_id
+            )
+        )
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="用户不存在或不属于该租户")
+        
+        # 防止禁用监控系统管理员账号
+        if user.email == "admin@monitoring.local" and not is_active:
+            raise HTTPException(
+                status_code=400, 
+                detail="不能禁用监控系统管理员账号"
+            )
+        
+        # 记录旧状态
+        old_status = user.is_active
+        
+        # 更新用户状态
+        await db.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(
+                is_active=is_active,
+                updated_at=func.now()
+            )
+        )
+        
+        await db.commit()
+        
+        # 记录操作日志
+        await log_admin_operation(
+            operation_type="update_user_status",
+            target_type="user",
+            target_id=user_id,
+            operation_details={
+                "tenant_id": tenant_id,
+                "tenant_name": tenant.name,
+                "user_email": user.email,
+                "old_status": old_status,
+                "new_status": is_active,
+                "reason": reason
+            },
+            request=request,
+            current_user=current_user,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "message": f"用户状态更新成功",
+            "user_id": user_id,
+            "user_email": user.email,
+            "tenant_name": tenant.name,
+            "old_status": old_status,
+            "new_status": is_active,
+            "reason": reason,
+            "note": f"用户已{'启用' if is_active else '禁用'}"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新用户状态失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="更新用户状态失败")
+
+@router.delete("/tenants/{tenant_id}/users/{user_id}")
+async def delete_user(
+    tenant_id: str,
+    user_id: str,
+    reason: str = Query("", description="删除原因"),
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+    request: Request = None
+):
+    """删除用户"""
+    try:
+        # 检查租户是否存在
+        tenant_result = await db.execute(
+            select(Tenant).where(Tenant.id == tenant_id)
+        )
+        tenant = tenant_result.scalar_one_or_none()
+        
+        if not tenant:
+            raise HTTPException(status_code=404, detail="租户不存在")
+        
+        # 检查用户是否存在且属于该租户
+        user_result = await db.execute(
+            select(User).where(
+                User.id == user_id,
+                User.tenant_id == tenant_id
+            )
+        )
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="用户不存在或不属于该租户")
+        
+        # 防止删除监控系统管理员账号
+        if user.email == "admin@monitoring.local":
+            raise HTTPException(
+                status_code=400, 
+                detail="不能删除监控系统管理员账号"
+            )
+        
+        # 记录删除前的用户信息
+        user_info = {
+            "id": str(user.id),
+            "email": user.email,
+            "role": user.role,
+            "is_active": user.is_active
+        }
+        
+        # 删除用户
+        await db.execute(
+            "DELETE FROM users WHERE id = $1",
+            user_id
+        )
+        
+        await db.commit()
+        
+        # 记录操作日志
+        await log_admin_operation(
+            operation_type="delete_user",
+            target_type="user",
+            target_id=user_id,
+            operation_details={
+                "tenant_id": tenant_id,
+                "tenant_name": tenant.name,
+                "deleted_user": user_info,
+                "reason": reason
+            },
+            request=request,
+            current_user=current_user,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "message": "用户删除成功",
+            "deleted_user": user_info,
+            "tenant_name": tenant.name,
+            "reason": reason,
+            "warning": "此操作不可逆，用户已被永久删除"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除用户失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="删除用户失败")
+
+@router.put("/tenants/{tenant_id}/users/{user_id}/role")
+async def update_user_role(
+    tenant_id: str,
+    user_id: str,
+    role: str = Query(..., description="新角色"),
+    reason: str = Query("", description="修改原因"),
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+    request: Request = None
+):
+    """更新用户角色"""
+    try:
+        # 验证角色是否有效
+        valid_roles = ["super_admin", "admin", "user", "viewer"]
+        if role not in valid_roles:
+            raise HTTPException(
+                status_code=400,
+                detail=f"角色值无效，必须是以下之一: {', '.join(valid_roles)}"
+            )
+        
+        # 检查租户是否存在
+        tenant_result = await db.execute(
+            select(Tenant).where(Tenant.id == tenant_id)
+        )
+        tenant = tenant_result.scalar_one_or_none()
+        
+        if not tenant:
+            raise HTTPException(status_code=404, detail="租户不存在")
+        
+        # 检查用户是否存在且属于该租户
+        user_result = await db.execute(
+            select(User).where(
+                User.id == user_id,
+                User.tenant_id == tenant_id
+            )
+        )
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="用户不存在或不属于该租户")
+        
+        # 防止修改监控系统管理员账号角色
+        if user.email == "admin@monitoring.local" and role != "super_admin":
+            raise HTTPException(
+                status_code=400, 
+                detail="不能修改监控系统管理员账号角色"
+            )
+        
+        # 记录旧角色
+        old_role = user.role
+        
+        # 更新用户角色
+        await db.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(
+                role=role,
+                updated_at=func.now()
+            )
+        )
+        
+        await db.commit()
+        
+        # 记录操作日志
+        await log_admin_operation(
+            operation_type="update_user_role",
+            target_type="user",
+            target_id=user_id,
+            operation_details={
+                "tenant_id": tenant_id,
+                "tenant_name": tenant.name,
+                "user_email": user.email,
+                "old_role": old_role,
+                "new_role": role,
+                "reason": reason
+            },
+            request=request,
+            current_user=current_user,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "message": "用户角色更新成功",
+            "user_id": user_id,
+            "user_email": user.email,
+            "tenant_name": tenant.name,
+            "old_role": old_role,
+            "new_role": role,
+            "reason": reason,
+            "note": f"用户角色已从 {old_role} 更改为 {role}"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新用户角色失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="更新用户角色失败")

@@ -1,0 +1,38 @@
+MonitoringTenants-BPl-zm94.js:1 🔄 开始更新租户状态: 999 -> disabled
+MonitoringTenants-BPl-zm94.js:1 ✅ 状态更新成功: {success: true, message: '租户状态更新成功', tenant_id: 'b7685340-0e7b-4f33-a31f-4f157b810648', tenant_name: '999', old_status: 'active', …}
+MonitoringTenants-BPl-zm94.js:6 🔄 开始刷新租户列表...
+MonitoringTenants-BPl-zm94.js:1 🔄 开始获取租户列表...
+MonitoringTenants-BPl-zm94.js:1 📋 获取到租户数据: 5 个租户
+MonitoringTenants-BPl-zm94.js:1    租户数据: (5) [{…}, {…}, {…}, {…}, {…}]
+MonitoringTenants-BPl-zm94.js:1 ✅ 租户列表更新完成
+MonitoringTenants-BPl-zm94.js:1    当前tenants.value: Proxy(Array) {0: {…}, 1: {…}, 2: {…}, 3: {…}, 4: {…}}
+MonitoringTenants-BPl-zm94.js:6 ✅ 租户列表刷新完成
+MonitoringTenants-BPl-zm94.js:6 🔍 验证状态更新...
+MonitoringTenants-BPl-zm94.js:6    租户 999 当前状态: disabled
+MonitoringTenants-BPl-zm94.js:6    期望状态: disabled
+MonitoringTenants-BPl-zm94.js:6 ✅ 状态验证成功!
+MonitoringTenants-BPl-zm94.js:1 🔍 渲染后找到 20 个操作按钮
+MonitoringTenants-BPl-zm94.js:1    租户 999: 状态=disabled, 按钮文字="启用", 期望="启用"
+MonitoringTenants-BPl-zm94.js:1    租户 监控系统: 状态=active, 按钮文字="禁用", 期望="禁用"
+MonitoringTenants-BPl-zm94.js:1    租户 888: 状态=active, 按钮文字="禁用", 期望="禁用"
+MonitoringTenants-BPl-zm94.js:1    租户 测试租户: 状态=active, 按钮文字="禁用", 期望="禁用"
+MonitoringTenants-BPl-zm94.js:1    租户 默认租户: 状态=active, 按钮文字="禁用", 期望="禁用"
+MonitoringTenants-BPl-zm94.js:1 🔄 开始更新租户状态: 999 -> active
+MonitoringTenants-BPl-zm94.js:1 ✅ 状态更新成功: {success: true, message: '租户状态更新成功', tenant_id: 'b7685340-0e7b-4f33-a31f-4f157b810648', tenant_name: '999', old_status: 'disabled', …}
+MonitoringTenants-BPl-zm94.js:6 🔄 开始刷新租户列表...
+MonitoringTenants-BPl-zm94.js:1 🔄 开始获取租户列表...
+MonitoringTenants-BPl-zm94.js:1 📋 获取到租户数据: 5 个租户
+MonitoringTenants-BPl-zm94.js:1    租户数据: (5) [{…}, {…}, {…}, {…}, {…}]
+MonitoringTenants-BPl-zm94.js:1 ✅ 租户列表更新完成
+MonitoringTenants-BPl-zm94.js:1    当前tenants.value: Proxy(Array) {0: {…}, 1: {…}, 2: {…}, 3: {…}, 4: {…}}
+MonitoringTenants-BPl-zm94.js:6 ✅ 租户列表刷新完成
+MonitoringTenants-BPl-zm94.js:6 🔍 验证状态更新...
+MonitoringTenants-BPl-zm94.js:6    租户 999 当前状态: active
+MonitoringTenants-BPl-zm94.js:6    期望状态: active
+MonitoringTenants-BPl-zm94.js:6 ✅ 状态验证成功!
+MonitoringTenants-BPl-zm94.js:1 🔍 渲染后找到 20 个操作按钮
+MonitoringTenants-BPl-zm94.js:1    租户 999: 状态=active, 按钮文字="禁用", 期望="禁用"
+MonitoringTenants-BPl-zm94.js:1    租户 监控系统: 状态=active, 按钮文字="禁用", 期望="禁用"
+MonitoringTenants-BPl-zm94.js:1    租户 888: 状态=active, 按钮文字="禁用", 期望="禁用"
+MonitoringTenants-BPl-zm94.js:1    租户 测试租户: 状态=active, 按钮文字="禁用", 期望="禁用"
+MonitoringTenants-BPl-zm94.js:1    租户 默认租户: 状态=active, 按钮文字="禁用", 期望="禁用"
