@@ -320,7 +320,6 @@ export default {
     // 获取租户列表
     const fetchTenants = async () => {
       try {
-        console.log('🔄 开始获取租户列表...')
         loading.value = true
         
         const params = new URLSearchParams({
@@ -346,35 +345,9 @@ export default {
         
         if (response.ok) {
           const data = await response.json()
-          console.log('📋 获取到租户数据:', data.tenants?.length || 0, '个租户')
-          console.log('   租户数据:', data.tenants)
-          
           tenants.value = data.tenants || []
           totalCount.value = data.pagination?.total || 0
           totalPages.value = data.pagination?.pages || 1
-          
-          console.log('✅ 租户列表更新完成')
-          console.log('   当前tenants.value:', tenants.value)
-          
-          // 检查按钮是否正确渲染
-          setTimeout(() => {
-            const actionButtons = document.querySelectorAll('.action-btn')
-            console.log(`🔍 渲染后找到 ${actionButtons.length} 个操作按钮`)
-            
-            // 检查启用/禁用按钮的状态
-            tenants.value.forEach((tenant, tenantIndex) => {
-              const enableDisableBtn = actionButtons[tenantIndex * 4 + 1] // 第二个按钮是启用/禁用按钮
-              if (enableDisableBtn) {
-                const expectedText = tenant.status === 'active' ? '禁用' : '启用'
-                const actualText = enableDisableBtn.textContent.trim()
-                console.log(`   租户 ${tenant.name}: 状态=${tenant.status}, 按钮文字="${actualText}", 期望="${expectedText}"`)
-                
-                if (actualText !== expectedText) {
-                  console.log(`   ⚠️ 按钮文字不匹配!`)
-                }
-              }
-            })
-          }, 100)
         } else {
           console.error('获取租户列表失败:', response.status)
         }
@@ -486,8 +459,6 @@ export default {
     const updateTenantStatus = async () => {
       const { tenant, newStatus, reason } = confirmAction.value
       
-      console.log(`🔄 开始更新租户状态: ${tenant.name} -> ${newStatus}`)
-      
       // 构建查询参数
       const params = new URLSearchParams({
         status: newStatus,
@@ -508,26 +479,10 @@ export default {
       
       // 显示成功消息
       const result = await response.json()
-      console.log('✅ 状态更新成功:', result)
       alert(`租户状态更新成功！\n\n租户: ${result.tenant_name}\n旧状态: ${result.old_status}\n新状态: ${result.new_status}\n原因: ${result.reason}`)
       
       // 刷新租户列表以更新状态显示
-      console.log('🔄 开始刷新租户列表...')
       await fetchTenants()
-      console.log('✅ 租户列表刷新完成')
-      
-      // 验证状态是否真的更新了
-      console.log('🔍 验证状态更新...')
-      const updatedTenant = tenants.value.find(t => t.id === tenant.id)
-      if (updatedTenant) {
-        console.log(`   租户 ${updatedTenant.name} 当前状态: ${updatedTenant.status}`)
-        console.log(`   期望状态: ${newStatus}`)
-        if (updatedTenant.status === newStatus) {
-          console.log('✅ 状态验证成功!')
-        } else {
-          console.log('❌ 状态验证失败!')
-        }
-      }
     }
     
     // 重置租户密码
@@ -646,25 +601,7 @@ export default {
     })
     
     onMounted(() => {
-      console.log('🚀 MonitoringTenants组件已挂载')
-      console.log('   组件状态:', {
-        loading: loading.value,
-        tenantsCount: tenants.value.length,
-        showConfirmModal: showConfirmModal.value,
-        showTenantModal: showTenantModal.value
-      })
-      
       fetchTenants()
-      
-      // 测试按钮事件绑定
-      console.log('🔍 测试按钮事件绑定...')
-      setTimeout(() => {
-        const buttons = document.querySelectorAll('.action-btn')
-        console.log(`   找到 ${buttons.length} 个操作按钮`)
-        buttons.forEach((btn, index) => {
-          console.log(`   按钮 ${index}:`, btn.textContent, btn.className)
-        })
-      }, 2000)
     })
     
     return {
