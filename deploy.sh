@@ -792,8 +792,8 @@ configure_ssl_certificate() {
     log "配置SSL证书..."
     
     local ssl_dir="/etc/nginx/ssl"
-    local cert_file="$ssl_dir/project-ledger.crt"
-    local key_file="$ssl_dir/project-ledger.key"
+    local cert_file="$ssl_dir/fince-project.crt"
+    local key_file="$ssl_dir/fince-project.key"
     
     # 创建SSL目录
     sudo mkdir -p "$ssl_dir"
@@ -823,8 +823,8 @@ configure_ssl_certificate() {
 configure_nginx_site() {
     log "配置Nginx站点..."
     
-    local site_config="/etc/nginx/sites-available/project-ledger"
-    local site_enabled="/etc/nginx/sites-enabled/project-ledger"
+    local site_config="/etc/nginx/sites-available/fince-project"
+    local site_enabled="/etc/nginx/sites-enabled/fince-project"
     
     # 创建站点配置
     sudo tee "$site_config" > /dev/null << EOF
@@ -845,11 +845,25 @@ server {
     ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
     ssl_prefer_server_ciphers off;
     
+    # 安全头
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    
     # 前端静态文件
     location / {
         root $FRONTEND_DIST_DIR;
         try_files \$uri \$uri/ /index.html;
-        add_header Cache-Control "public, max-age=31536000" always;
+    }
+    
+    # 静态资源缓存（优化版本）
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        root $FRONTEND_DIST_DIR;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
     }
     
     # 后端API
@@ -859,12 +873,18 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        
+        # 超时设置
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
     }
     
     # 健康检查
     location /health {
-        proxy_pass http://localhost:$BACKEND_PORT/health;
-        proxy_set_header Host \$host;
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
     }
     
     # 上传文件
@@ -872,16 +892,22 @@ server {
         alias $BACKEND_DIR/uploads/;
         add_header Cache-Control "public, max-age=3600" always;
     }
+    
+    # 日志配置
+    access_log /var/log/nginx/fince-project.access.log;
+    error_log /var/log/nginx/fince-project.error.log;
 }
 EOF
     
     # 启用站点
     sudo ln -sf "$site_config" "$site_enabled"
     
-    # 禁用默认站点
+    # 禁用默认站点和其他冲突配置
     sudo rm -f /etc/nginx/sites-enabled/default
+    sudo rm -f /etc/nginx/sites-enabled/fince
+    sudo rm -f /etc/nginx/sites-enabled/project-ledger
     
-    log "Nginx站点配置完成"
+    log "Nginx站点配置完成，已清理冲突配置"
 }
 
 # 配置防火墙

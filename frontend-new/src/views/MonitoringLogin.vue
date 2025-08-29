@@ -13,7 +13,7 @@
             id="email"
             v-model="form.email"
             type="email"
-            placeholder="admin@monitoring.local"
+            placeholder="请输入管理员账号"
             :disabled="loading"
             required
           />
@@ -34,7 +34,7 @@
         <div class="form-actions">
           <button
             @click="handleLogin"
-            :disabled="loading || !form.email || !form.password"
+            :disabled="loading || !form.email.trim() || !form.password"
             class="login-btn"
           >
             <span v-if="loading">登录中...</span>
@@ -48,8 +48,8 @@
       </div>
       
       <div class="login-footer">
-        <p>默认账号：admin@monitoring.local</p>
-        <p>默认密码：Lovelewis@586930</p>
+        <p>系统监控后台 - 管理员登录</p>
+        <p>请联系系统管理员获取登录凭据</p>
       </div>
     </div>
   </div>
@@ -70,7 +70,7 @@ export default {
     const error = ref('')
     
     const form = reactive({
-      email: 'admin@monitoring.local',
+      email: '',
       password: ''
     })
     

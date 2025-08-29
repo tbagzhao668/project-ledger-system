@@ -3,7 +3,7 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, update
+from sqlalchemy import select, func, desc, update, text
 from sqlalchemy.orm import selectinload
 from typing import List, Optional, Dict, Any
 import secrets
@@ -426,43 +426,42 @@ async def delete_tenant(
         }
         
         # 执行删除操作（级联删除）
-        # 注意：这里使用原生SQL来确保级联删除
-        async with db.begin():
-            # 删除财务记录
-            await db.execute(
-                "DELETE FROM transactions WHERE tenant_id = $1",
-                tenant_id
-            )
-            
-            # 删除项目
-            await db.execute(
-                "DELETE FROM projects WHERE tenant_id = $1",
-                tenant_id
-            )
-            
-            # 删除分类
-            await db.execute(
-                "DELETE FROM categories WHERE tenant_id = $1",
-                tenant_id
-            )
-            
-            # 删除供应商
-            await db.execute(
-                "DELETE FROM suppliers WHERE tenant_id = $1",
-                tenant_id
-            )
-            
-            # 删除用户
-            await db.execute(
-                "DELETE FROM users WHERE tenant_id = $1",
-                tenant_id
-            )
-            
-            # 删除租户
-            await db.execute(
-                "DELETE FROM tenants WHERE id = $1",
-                tenant_id
-            )
+        # 使用SQLAlchemy ORM来确保级联删除
+        # 删除财务记录
+        await db.execute(
+            text("DELETE FROM transactions WHERE tenant_id = :tenant_id"),
+            {"tenant_id": tenant_id}
+        )
+        
+        # 删除项目
+        await db.execute(
+            text("DELETE FROM projects WHERE tenant_id = :tenant_id"),
+            {"tenant_id": tenant_id}
+        )
+        
+        # 删除分类
+        await db.execute(
+            text("DELETE FROM categories WHERE tenant_id = :tenant_id"),
+            {"tenant_id": tenant_id}
+        )
+        
+        # 删除供应商
+        await db.execute(
+            text("DELETE FROM suppliers WHERE tenant_id = :tenant_id"),
+            {"tenant_id": tenant_id}
+        )
+        
+        # 删除用户
+        await db.execute(
+            text("DELETE FROM users WHERE tenant_id = :tenant_id"),
+            {"tenant_id": tenant_id}
+        )
+        
+        # 删除租户
+        await db.execute(
+            text("DELETE FROM tenants WHERE id = :tenant_id"),
+            {"tenant_id": tenant_id}
+        )
         
         # 记录操作日志
         await log_admin_operation(
