@@ -79,6 +79,15 @@ project-fince/
 | `init_database.sql` | 数据库初始化 | 新环境数据库创建 |
 | `database_initial.sql.gz` | 初始数据库 | 包含基础表结构和数据 |
 
+### 数据库检查脚本
+
+| 脚本 | 用途 | 使用场景 |
+|------|------|----------|
+| `check_database.sh` | 综合数据库检查 | 日常数据库状态检查 |
+| `check_database_structure.py` | 数据库结构检查 | 详细表结构验证 |
+| `test_database_connection.py` | 数据库连接测试 | 连接和权限测试 |
+| `test_database_performance.py` | 数据库性能测试 | 性能评估和优化 |
+
 ### 配置文件
 
 | 文件 | 用途 | 说明 |
@@ -147,6 +156,8 @@ project-fince/
 2. **数据库连接失败**: 检查PostgreSQL服务状态
 3. **Nginx配置错误**: 使用 `sudo nginx -t` 测试配置
 4. **SSL证书问题**: 重新运行 `sudo ./generate_ssl_cert.sh`
+5. **数据库结构问题**: 使用 `./check_database.sh` 检查数据库状态
+6. **数据库性能问题**: 使用 `python3 test_database_performance.py` 测试性能
 
 ### 日志查看
 

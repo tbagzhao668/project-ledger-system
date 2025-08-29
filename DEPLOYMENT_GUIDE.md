@@ -148,6 +148,83 @@ sudo -u postgres psql -f init_database.sql
 
 # 修复数据库结构
 ./deploy.sh fix-schema
+
+# 检查数据库状态
+./check_database.sh
+```
+
+### 数据库检查脚本
+
+#### 1. `check_database.sh` - 综合数据库检查脚本
+
+**用途**: 一键检查数据库状态、结构和性能
+
+**功能**:
+- 检查PostgreSQL服务状态
+- 验证数据库连接和用户权限
+- 检查表结构和字段数量
+- 测试数据库性能
+- 提供详细的检查报告
+
+**使用方法**:
+```bash
+chmod +x check_database.sh
+./check_database.sh
+```
+
+#### 2. `check_database_structure.py` - 数据库结构检查脚本
+
+**用途**: 详细检查数据库表结构和字段完整性
+
+**功能**:
+- 验证必需表是否存在
+- 检查字段数量和类型
+- 识别缺失和多余的字段
+- 提供字段详细信息
+
+**使用方法**:
+```bash
+cd backend
+source venv/bin/activate
+cd ..
+python3 check_database_structure.py
+```
+
+#### 3. `test_database_connection.py` - 数据库连接测试脚本
+
+**用途**: 测试数据库连接、权限和基本功能
+
+**功能**:
+- 测试不同用户的连接
+- 验证用户权限配置
+- 测试基本数据库操作
+- 检查事务处理能力
+
+**使用方法**:
+```bash
+cd backend
+source venv/bin/activate
+cd ..
+python3 test_database_connection.py
+```
+
+#### 4. `test_database_performance.py` - 数据库性能测试脚本
+
+**用途**: 评估数据库查询性能和并发处理能力
+
+**功能**:
+- 测试简单和复杂查询性能
+- 评估插入操作性能
+- 测试并发连接能力
+- 分析数据库大小和统计信息
+- 提供性能优化建议
+
+**使用方法**:
+```bash
+cd backend
+source venv/bin/activate
+cd ..
+python3 test_database_performance.py
 ```
 
 ## 🌐 访问地址
@@ -229,6 +306,10 @@ sudo tail -f /var/log/nginx/fince-project.error.log
    
    # 检查数据库用户
    sudo -u postgres psql -c "\du"
+   
+   # 使用数据库检查脚本诊断
+   ./check_database.sh
+   python3 test_database_connection.py
    ```
 
 3. **Nginx配置错误**
@@ -247,6 +328,27 @@ sudo tail -f /var/log/nginx/fince-project.error.log
    
    # 重启Nginx
    sudo systemctl restart nginx
+   ```
+
+5. **数据库结构问题**
+   ```bash
+   # 检查数据库结构
+   ./check_database.sh
+   
+   # 详细检查表结构
+   python3 check_database_structure.py
+   
+   # 修复数据库结构
+   ./deploy.sh fix-schema
+   ```
+
+6. **数据库性能问题**
+   ```bash
+   # 测试数据库性能
+   python3 test_database_performance.py
+   
+   # 检查数据库大小和统计
+   sudo -u postgres psql -d fince_project_prod -c "SELECT pg_size_pretty(pg_database_size(current_database()));"
    ```
 
 ## 📝 更新日志

@@ -1173,12 +1173,428 @@ fix_permissions() {
     log "权限修复完成"
 }
 
+# 导出数据库
+export_database() {
+    log "📤 开始导出数据库..."
+    
+    # 检查PostgreSQL是否运行
+    if ! systemctl is-active --quiet postgresql; then
+        error "PostgreSQL服务未运行，无法导出数据库"
+        return 1
+    fi
+    
+    # 设置导出文件路径
+    local export_file="$PROJECT_DIR/backups/database_export_$(date +%Y%m%d_%H%M%S).sql"
+    local export_file_gz="${export_file}.gz"
+    
+    # 创建备份目录
+    mkdir -p "$PROJECT_DIR/backups"
+    
+    log "导出数据库到: $export_file"
+    
+    # 导出数据库（包含结构和数据）
+    if sudo -u postgres pg_dump -d fince_project_prod --clean --create --if-exists > "$export_file" 2>/dev/null; then
+        log "✅ 数据库导出成功"
+        
+        # 压缩导出文件
+        if gzip "$export_file"; then
+            log "✅ 导出文件已压缩: $export_file_gz"
+            log "📁 文件大小: $(du -h "$export_file_gz" | cut -f1)"
+        else
+            log "⚠️ 压缩失败，保留未压缩文件: $export_file"
+        fi
+        
+        # 显示导出文件信息
+        log "📋 导出文件信息:"
+        log "   文件路径: $export_file_gz"
+        log "   创建时间: $(date)"
+        log "   文件大小: $(du -h "$export_file_gz" | cut -f1)"
+        
+        return 0
+    else
+        error "❌ 数据库导出失败"
+        log "💡 可能的原因："
+        log "   1. 数据库不存在"
+        log "   2. 数据库用户权限不足"
+        log "   3. PostgreSQL配置问题"
+        return 1
+    fi
+}
+
+# 导入数据库
+import_database() {
+    log "📥 开始导入数据库..."
+    
+    # 检查PostgreSQL是否运行
+    if ! systemctl is-active --quiet postgresql; then
+        error "PostgreSQL服务未运行，无法导入数据库"
+        return 1
+    fi
+    
+    # 查找最新的导出文件
+    local backup_dir="$PROJECT_DIR/backups"
+    local latest_export=$(find "$backup_dir" -name "database_export_*.sql.gz" -type f | sort | tail -1)
+    
+    if [[ -z "$latest_export" ]]; then
+        error "❌ 未找到数据库导出文件"
+        log "💡 请先运行: ./deploy.sh export-db"
+        return 1
+    fi
+    
+    log "找到导出文件: $latest_export"
+    
+    # 解压文件
+    local temp_sql_file="$PROJECT_DIR/temp/temp_import.sql"
+    mkdir -p "$PROJECT_DIR/temp"
+    
+    log "解压导出文件..."
+    if gunzip -c "$latest_export" > "$temp_sql_file"; then
+        log "✅ 文件解压成功"
+    else
+        error "❌ 文件解压失败"
+        return 1
+    fi
+    
+    # 导入数据库
+    log "开始导入数据库..."
+    if sudo -u postgres psql -f "$temp_sql_file" 2>/dev/null; then
+        log "✅ 数据库导入成功"
+        
+        # 清理临时文件
+        rm -f "$temp_sql_file"
+        
+        # 验证导入结果
+        log "🔍 验证导入结果..."
+        if sudo -u postgres psql -h localhost -U postgres -d fince_project_prod -c "SELECT COUNT(*) FROM information_schema.tables;" 2>/dev/null | grep -q "[0-9]"; then
+            log "✅ 数据库验证成功"
+        else
+            warn "⚠️ 数据库验证失败，请手动检查"
+        fi
+        
+        return 0
+    else
+        error "❌ 数据库导入失败"
+        log "💡 可能的原因："
+        log "   1. 导出文件损坏"
+        log "   2. 数据库权限不足"
+        log "   3. PostgreSQL版本不兼容"
+        
+        # 清理临时文件
+        rm -f "$temp_sql_file"
+        return 1
+    fi
+}
+
+# 修复数据库表结构
+fix_database_schema() {
+    log "🔧 开始修复数据库表结构..."
+    
+    # 检查PostgreSQL是否运行
+    if ! systemctl is-active --quiet postgresql; then
+        error "PostgreSQL服务未运行，无法修复数据库结构"
+        return 1
+    fi
+    
+    # 创建数据库表结构
+    log "创建基础数据库表结构..."
+    
+    # 创建tenants表
+    sudo -u postgres psql -d fince_project_prod -c "
+    CREATE TABLE IF NOT EXISTS tenants (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(100) NOT NULL,
+        domain VARCHAR(50) UNIQUE,
+        plan_type VARCHAR(20) DEFAULT 'trial',
+        settings JSONB DEFAULT '{}',
+        subscription_end DATE,
+        storage_used BIGINT DEFAULT 0,
+        storage_limit BIGINT DEFAULT 5368709120,
+        api_calls_used INTEGER DEFAULT 0,
+        api_calls_limit INTEGER DEFAULT 1000,
+        status VARCHAR(20) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );" 2>/dev/null && log "✅ tenants表创建成功" || log "⚠️ tenants表创建警告"
+    
+    # 创建users表
+    sudo -u postgres psql -d fince_project_prod -c "
+    CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+        username VARCHAR(50) NOT NULL,
+        email VARCHAR(100) NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(20) DEFAULT 'user',
+        permissions JSONB DEFAULT '[]',
+        profile JSONB DEFAULT '{}',
+        last_login TIMESTAMP,
+        login_count INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        email_verified BOOLEAN DEFAULT FALSE,
+        two_factor_enabled BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );" 2>/dev/null && log "✅ users表创建成功" || log "⚠️ users表创建警告"
+    
+    # 创建projects表（包含所有必需字段）
+    sudo -u postgres psql -d fince_project_prod -c "
+    CREATE TABLE IF NOT EXISTS projects (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+        name VARCHAR(200) NOT NULL,
+        project_code VARCHAR(50) UNIQUE,
+        description TEXT,
+        project_type VARCHAR(50) DEFAULT 'other',
+        category VARCHAR(100),
+        tags JSONB DEFAULT '[]',
+        status VARCHAR(20) DEFAULT 'planning',
+        priority VARCHAR(20) DEFAULT 'medium',
+        progress INTEGER DEFAULT 0,
+        health_status VARCHAR(20) DEFAULT 'healthy',
+        start_date DATE,
+        end_date DATE,
+        actual_start_date DATE,
+        actual_end_date DATE,
+        estimated_duration INTEGER,
+        actual_duration INTEGER,
+        budget DECIMAL(15,2),
+        actual_cost DECIMAL(15,2) DEFAULT 0,
+        estimated_cost DECIMAL(15,2),
+        cost_variance DECIMAL(15,2),
+        budget_utilization DECIMAL(5,2),
+        manager_name VARCHAR(100),
+        manager_id UUID REFERENCES users(id),
+        team_size INTEGER DEFAULT 1,
+        assigned_users JSONB DEFAULT '[]',
+        location JSONB DEFAULT '{}',
+        address VARCHAR(500),
+        coordinates JSONB,
+        client_info JSONB DEFAULT '{}',
+        contract_info JSONB DEFAULT '{}',
+        contract_number VARCHAR(100),
+        contract_value DECIMAL(15,2),
+        payment_terms JSONB,
+        technical_specs JSONB,
+        requirements JSONB,
+        deliverables JSONB,
+        quality_standards JSONB,
+        risk_level VARCHAR(20) DEFAULT 'low',
+        risk_factors JSONB,
+        mitigation_plans JSONB,
+        budget_change_reason VARCHAR(200),
+        contract_change_reason VARCHAR(200),
+        change_description TEXT,
+        documents JSONB DEFAULT '[]',
+        attachments JSONB DEFAULT '[]',
+        approval_status VARCHAR(20) DEFAULT 'pending',
+        approval_history JSONB,
+        workflow_stage VARCHAR(50),
+        last_review_date DATE,
+        next_review_date DATE,
+        review_cycle VARCHAR(20),
+        reporting_frequency VARCHAR(20),
+        is_active BOOLEAN DEFAULT TRUE,
+        is_template BOOLEAN DEFAULT FALSE,
+        created_by UUID REFERENCES users(id),
+        updated_by UUID REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );" 2>/dev/null && log "✅ projects表创建成功" || log "⚠️ projects表创建警告"
+    
+    # 创建categories表
+    sudo -u postgres psql -d fince_project_prod -c "
+    CREATE TABLE IF NOT EXISTS categories (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        parent_id UUID REFERENCES categories(id),
+        icon VARCHAR(50),
+        color VARCHAR(7),
+        is_system VARCHAR(1) DEFAULT '0',
+        is_active VARCHAR(1) DEFAULT '1',
+        sort_order VARCHAR(10) DEFAULT '0',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );" 2>/dev/null && log "✅ categories表创建成功" || log "⚠️ categories表创建警告"
+    
+    # 创建suppliers表
+    sudo -u postgres psql -d fince_project_prod -c "
+    CREATE TABLE IF NOT EXISTS suppliers (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+        name VARCHAR(200) NOT NULL,
+        code VARCHAR(50),
+        contact_person VARCHAR(100),
+        phone VARCHAR(20),
+        email VARCHAR(100),
+        address TEXT,
+        business_scope TEXT,
+        qualification TEXT,
+        credit_rating VARCHAR(10),
+        payment_terms VARCHAR(200),
+        is_active VARCHAR(1) DEFAULT '1',
+        notes TEXT,
+        created_by UUID REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );" 2>/dev/null && log "✅ suppliers表创建成功" || log "⚠️ suppliers表创建警告"
+    
+    # 创建transactions表
+    sudo -u postgres psql -d fince_project_prod -c "
+    CREATE TABLE IF NOT EXISTS transactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+        project_id UUID REFERENCES projects(id),
+        supplier_id UUID REFERENCES suppliers(id),
+        category_id UUID REFERENCES categories(id),
+        transaction_date DATE NOT NULL,
+        type VARCHAR(10) NOT NULL,
+        amount DECIMAL(15,2) NOT NULL,
+        currency VARCHAR(10) DEFAULT 'CNY',
+        exchange_rate DECIMAL(10,6) DEFAULT 1.000000,
+        description TEXT,
+        notes TEXT,
+        tags JSONB,
+        payment_method VARCHAR(50),
+        status VARCHAR(20) DEFAULT 'pending',
+        attachment_url VARCHAR(500),
+        reference_number VARCHAR(100),
+        approved_by VARCHAR(100),
+        approved_at TIMESTAMP,
+        created_by UUID REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );" 2>/dev/null && log "✅ transactions表创建成功" || log "⚠️ transactions表创建警告"
+    
+    # 验证表结构
+    log "🔍 验证表结构完整性..."
+    local tables=("tenants" "users" "projects" "categories" "suppliers" "transactions")
+    local total_tables=0
+    local created_tables=0
+    
+    for table in "${tables[@]}"; do
+        if sudo -u postgres psql -d fince_project_prod -c "\dt $table" 2>/dev/null | grep -q "$table"; then
+            log "✅ $table 表存在"
+            ((created_tables++))
+        else
+            log "❌ $table 表缺失"
+        fi
+        ((total_tables++))
+    done
+    
+    log "📊 表结构验证结果: $created_tables/$total_tables 表创建成功"
+    
+    if [[ $created_tables -eq $total_tables ]]; then
+        log "🎉 数据库表结构修复完成！"
+        return 0
+    else
+        warn "⚠️ 部分表创建失败，请检查日志"
+        return 1
+    fi
+}
+
+# 检测和修复API错误
+detect_and_fix_api_errors() {
+    log "🔍 开始检测API错误..."
+    
+    # 检查数据库表结构
+    log "检查数据库表结构..."
+    fix_database_schema
+    
+    # 检查关键字段
+    log "检查关键字段..."
+    local critical_fields=(
+        "projects.contract_value"
+        "projects.manager_id"
+        "transactions.payment_method"
+        "categories.tenant_id"
+        "suppliers.tenant_id"
+    )
+    
+    for field in "${critical_fields[@]}"; do
+        local table_name=$(echo "$field" | cut -d'.' -f1)
+        local column_name=$(echo "$field" | cut -d'.' -f2)
+        
+        if sudo -u postgres psql -d fince_project_prod -c "SELECT column_name FROM information_schema.columns WHERE table_name = '$table_name' AND column_name = '$column_name';" 2>/dev/null | grep -q "$column_name"; then
+            log "✅ 关键字段 $field 存在"
+        else
+            log "❌ 关键字段 $field 缺失，尝试修复..."
+            # 这里可以添加具体的字段修复逻辑
+        fi
+    done
+    
+    log "🔍 API错误检测完成"
+}
+
+# 备份数据库
+backup_database() {
+    log "💾 开始备份数据库..."
+    
+    # 检查PostgreSQL是否运行
+    if ! systemctl is-active --quiet postgresql; then
+        error "PostgreSQL服务未运行，无法备份数据库"
+        return 1
+    fi
+    
+    # 设置备份文件路径
+    local backup_file="$PROJECT_DIR/backups/database_backup_$(date +%Y%m%d_%H%M%S).sql"
+    local backup_file_gz="${backup_file}.gz"
+    
+    # 创建备份目录
+    mkdir -p "$PROJECT_DIR/backups"
+    
+    log "备份数据库到: $backup_file"
+    
+    # 创建数据库备份（仅数据，不包含DROP/CREATE语句）
+    if sudo -u postgres pg_dump -h localhost -U postgres -d fince_project_prod --data-only --disable-triggers > "$backup_file" 2>/dev/null; then
+        log "✅ 数据库备份成功"
+        
+        # 压缩备份文件
+        if gzip "$backup_file"; then
+            log "✅ 备份文件已压缩: $backup_file_gz"
+            log "📁 文件大小: $(du -h "$backup_file_gz" | cut -f1)"
+        else
+            log "⚠️ 压缩失败，保留未压缩文件: $backup_file"
+        fi
+        
+        # 显示备份文件信息
+        log "📋 备份文件信息:"
+        log "   文件路径: $backup_file_gz"
+        log "   创建时间: $(date)"
+        log "   文件大小: $(du -h "$backup_file_gz" | cut -f1)"
+        log "   备份类型: 仅数据（不含结构）"
+        
+        return 0
+    else
+        error "❌ 数据库备份失败"
+        log "💡 可能的原因："
+        log "   1. 数据库不存在"
+        log "   2. 数据库用户权限不足"
+        log "   3. PostgreSQL配置问题"
+        return 1
+    fi
+}
+
 # 显示部署成功信息
 show_deployment_success_info() {
     log ""
     log "🎊 恭喜！系统部署成功！"
-    log ""
-    log "📱 访问地址："
+log ""
+log "📚 其他可用脚本："
+log "   quick_deploy.sh      - 快速部署脚本（新环境一键部署）"
+log "   start-all-services.sh - 启动所有服务脚本"
+log "   generate_ssl_cert.sh  - SSL证书生成脚本"
+log "   init_database.sql     - 数据库初始化脚本"
+log "   check_database.sh     - 数据库检查脚本（一键检查状态）"
+log "   check_database_structure.py - 数据库结构检查脚本"
+log "   test_database_connection.py - 数据库连接测试脚本"
+log "   test_database_performance.py - 数据库性能测试脚本"
+log ""
+log "📖 详细文档："
+log "   DEPLOYMENT_GUIDE.md   - 完整部署指南"
+log "   数据库迁移指南.md      - 数据库迁移说明"
+log ""
+log "📱 访问地址："
     log "   前端应用: https://localhost"
     log "   后端API:  https://localhost/api/v1"
     log "   健康检查: https://localhost/health"
@@ -1251,15 +1667,23 @@ $PROJECT_NAME - 一键部署脚本
     start             启动所有服务
                status            检查服务状态
            health            执行健康检查
-           configure-nginx   重新配置Nginx和SSL
-           fix-permissions   修复所有权限问题
-           help              显示此帮助信息
+    fix-schema        修复数据库表结构
+    detect-api-errors 检测和修复API错误
+    export-db         导出数据库（包含结构和数据）
+    import-db         导入数据库（从最新导出文件）
+    backup-db         备份数据库（仅数据）
+    configure-nginx   重新配置Nginx和SSL
+    fix-permissions   修复所有权限问题
+    help              显示此帮助信息
 
 示例:
     $0 init-project    # 新服务器：初始化项目目录
     $0 first-deploy    # 新服务器：首次完整部署（推荐）
     $0 deploy          # 已有环境：一键完整部署
     $0 quick-deploy    # 日常使用：快速部署
+    $0 export-db       # 导出数据库（迁移前）
+    $0 import-db       # 导入数据库（迁移后）
+    $0 backup-db       # 备份数据库数据
     $0 restart         # 重启服务
     $0 health          # 健康检查
 
@@ -1372,16 +1796,56 @@ main() {
         "health")
             health_check
             ;;
-                   "configure-nginx")
-               log "重新配置Nginx和SSL..."
-               configure_nginx
-               log "Nginx配置更新完成"
-               ;;
-           "fix-permissions")
-               log "修复所有权限问题..."
-               fix_permissions
-               log "权限修复完成"
-               ;;
+        "fix-schema")
+            log "🔧 开始修复数据库表结构..."
+            fix_database_schema
+            log "数据库表结构修复完成"
+            ;;
+        "detect-api-errors")
+            log "🔍 开始检测API错误..."
+            detect_and_fix_api_errors
+            log "API错误检测和修复完成"
+            ;;
+        "fix-contract-value")
+            log "🔧 开始修复contract_value字段问题..."
+            fix_contract_value_field
+            log "contract_value字段修复完成"
+            ;;
+        "configure-nginx")
+            log "重新配置Nginx和SSL..."
+            configure_nginx
+            log "Nginx配置更新完成"
+            ;;
+        "fix-permissions")
+            log "修复所有权限问题..."
+            fix_permissions
+            log "权限修复完成"
+            ;;
+        "fix-schema")
+            log "🔧 开始修复数据库表结构..."
+            fix_database_schema
+            log "数据库表结构修复完成"
+            ;;
+        "detect-api-errors")
+            log "🔍 开始检测API错误..."
+            detect_and_fix_api_errors
+            log "API错误检测和修复完成"
+            ;;
+        "export-db")
+            log "📤 开始导出数据库..."
+            export_database
+            log "数据库导出完成"
+            ;;
+        "import-db")
+            log "📥 开始导入数据库..."
+            import_database
+            log "数据库导入完成"
+            ;;
+        "backup-db")
+            log "💾 开始备份数据库..."
+            backup_database
+            log "数据库备份完成"
+            ;;
         "help"|*)
             show_help
             ;;

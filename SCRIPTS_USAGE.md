@@ -145,6 +145,100 @@ sudo -u postgres psql -f init_database.sql
 gunzip -c database_initial.sql.gz | sudo -u postgres psql
 ```
 
+## 🔍 数据库检查脚本
+
+### 7. `check_database.sh` - 综合数据库检查脚本
+
+**用途**: 一键检查数据库状态、结构和性能
+
+**功能**:
+- 检查PostgreSQL服务状态
+- 验证数据库连接和用户权限
+- 检查表结构和字段数量
+- 测试数据库性能
+- 提供详细的检查报告
+
+**使用方法**:
+```bash
+chmod +x check_database.sh
+./check_database.sh
+```
+
+**适用场景**:
+- 日常数据库状态检查
+- 部署后验证
+- 故障诊断
+
+### 8. `check_database_structure.py` - 数据库结构检查脚本
+
+**用途**: 详细检查数据库表结构和字段完整性
+
+**功能**:
+- 验证必需表是否存在
+- 检查字段数量和类型
+- 识别缺失和多余的字段
+- 提供字段详细信息
+
+**使用方法**:
+```bash
+cd backend
+source venv/bin/activate
+cd ..
+python3 check_database_structure.py
+```
+
+**适用场景**:
+- 数据库结构验证
+- 字段完整性检查
+- 开发调试
+
+### 9. `test_database_connection.py` - 数据库连接测试脚本
+
+**用途**: 测试数据库连接、权限和基本功能
+
+**功能**:
+- 测试不同用户的连接
+- 验证用户权限配置
+- 测试基本数据库操作
+- 检查事务处理能力
+
+**使用方法**:
+```bash
+cd backend
+source venv/bin/activate
+cd ..
+python3 test_database_connection.py
+```
+
+**适用场景**:
+- 连接问题诊断
+- 权限配置验证
+- 功能测试
+
+### 10. `test_database_performance.py` - 数据库性能测试脚本
+
+**用途**: 评估数据库查询性能和并发处理能力
+
+**功能**:
+- 测试简单和复杂查询性能
+- 评估插入操作性能
+- 测试并发连接能力
+- 分析数据库大小和统计信息
+- 提供性能优化建议
+
+**使用方法**:
+```bash
+cd backend
+source venv/bin/activate
+cd ..
+python3 test_database_performance.py
+```
+
+**适用场景**:
+- 性能基准测试
+- 性能问题诊断
+- 优化效果评估
+
 ## ⚙️ 配置文件
 
 ### 7. `nginx-site.conf` - Nginx站点配置
