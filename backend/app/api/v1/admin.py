@@ -234,14 +234,39 @@ async def update_tenant_status(
             )
         # 如果启用租户，同时启用该租户下的所有用户
         elif new_status == 'active':
-            await db.execute(
-                update(User)
-                .where(User.tenant_id == tenant_id)
-                .values(
-                    is_active=True,
-                    updated_at=func.now()
+            logger.info(f"启用租户 {tenant.name}，同时启用相关用户")
+            try:
+                # 先查询要更新的用户数量
+                users_count_result = await db.execute(
+                    select(func.count(User.id)).where(User.tenant_id == tenant_id)
                 )
-            )
+                users_count = users_count_result.scalar() or 0
+                logger.info(f"租户 {tenant.name} 下有 {users_count} 个用户需要启用")
+                
+                # 更新用户状态
+                result = await db.execute(
+                    update(User)
+                    .where(User.tenant_id == tenant_id)
+                    .values(
+                        is_active=True,
+                        updated_at=func.now()
+                    )
+                )
+                
+                # 获取实际更新的行数
+                updated_users = result.rowcount
+                logger.info(f"成功启用 {updated_users} 个用户")
+                
+                if updated_users == 0:
+                    logger.warning(f"租户 {tenant.name} 下没有用户被更新")
+                
+            except Exception as user_update_error:
+                logger.error(f"启用租户用户时发生错误: {str(user_update_error)}")
+                # 不中断整个操作，但记录错误
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"启用租户成功，但启用用户失败: {str(user_update_error)}"
+                )
         
         await db.commit()
         

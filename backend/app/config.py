@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     PORT: int = 8000
     
     # 数据库配置
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:123456@localhost:5432/project_ledger"
-    DATABASE_URL_SYNC: str = "postgresql://postgres:123456@localhost:5432/project_ledger"
+    DATABASE_URL: str = "postgresql+asyncpg://ledger_user:ledger_user@localhost:5432/project_ledger"
+    DATABASE_URL_SYNC: str = "postgresql://ledger_user:ledger_user@localhost:5432/project_ledger"
     
     # Redis配置
     REDIS_URL: str = "redis://localhost:6379/0"
