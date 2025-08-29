@@ -1209,6 +1209,22 @@ export_database() {
         log "   文件路径: $export_file_gz"
         log "   创建时间: $(date)"
         log "   文件大小: $(du -h "$export_file_gz" | cut -f1)"
+        log "   数据库名称: fince_project_prod"
+        log "   导出类型: 完整数据库（结构和数据）"
+        
+        # 显示数据库统计信息
+        log "📊 数据库统计信息:"
+        local table_count=$(sudo -u postgres psql -d fince_project_prod -c "SELECT COUNT(*) FROM information_schema.tables;" 2>/dev/null | tail -1 | tr -d ' ')
+        log "   📋 表数量: $table_count"
+        
+        # 显示各表的记录数
+        local tables=$(sudo -u postgres psql -d fince_project_prod -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public';" 2>/dev/null | grep -v tablename | grep -v "^$" | tr -d ' ')
+        for table in $tables; do
+            if [[ -n "$table" ]]; then
+                local record_count=$(sudo -u postgres psql -d fince_project_prod -c "SELECT COUNT(*) FROM \"$table\";" 2>/dev/null | tail -1 | tr -d ' ')
+                log "   📊 表 $table: $record_count 条记录"
+            fi
+        done
         
         return 0
     else
@@ -1255,34 +1271,117 @@ import_database() {
         return 1
     fi
     
-    # 导入数据库
-    log "开始导入数据库..."
-    if sudo -u postgres psql -f "$temp_sql_file" 2>/dev/null; then
-        log "✅ 数据库导入成功"
-        
-        # 清理临时文件
-        rm -f "$temp_sql_file"
-        
-        # 验证导入结果
-        log "🔍 验证导入结果..."
-        if sudo -u postgres psql -h localhost -U postgres -d fince_project_prod -c "SELECT COUNT(*) FROM information_schema.tables;" 2>/dev/null | grep -q "[0-9]"; then
-            log "✅ 数据库验证成功"
-        else
-            warn "⚠️ 数据库验证失败，请手动检查"
-        fi
-        
-        return 0
+    # 获取导出文件中的数据库名称
+    log "🔍 分析导出文件中的数据库信息..."
+    
+    # 提取数据库名称
+    local source_db_name=$(grep -E "^CREATE DATABASE|^-- Database:" "$temp_sql_file" | head -1 | sed 's/.*"\([^"]*\)".*/\1/' | sed 's/.*Database: \([^[:space:]]*\).*/\1/')
+    
+    if [[ -z "$source_db_name" ]]; then
+        # 如果无法从文件中提取，使用默认名称
+        source_db_name="fince_project_prod"
+        log "⚠️  无法从导出文件确定数据库名称，使用默认名称: $source_db_name"
     else
-        error "❌ 数据库导入失败"
-        log "💡 可能的原因："
-        log "   1. 导出文件损坏"
-        log "   2. 数据库权限不足"
-        log "   3. PostgreSQL版本不兼容"
-        
-        # 清理临时文件
-        rm -f "$temp_sql_file"
-        return 1
+        log "📋 导出文件中的数据库名称: $source_db_name"
     fi
+    
+    # 询问用户目标数据库名称
+    local target_db_name
+    if [[ -t 0 ]]; then
+        # 交互模式
+        echo ""
+        read -p "请输入目标数据库名称 (默认: $source_db_name): " target_db_name
+        target_db_name=${target_db_name:-$source_db_name}
+    else
+        # 非交互模式，使用源数据库名称
+        target_db_name="$source_db_name"
+    fi
+    
+    log "🎯 目标数据库名称: $target_db_name"
+    
+    # 检查目标数据库是否已存在
+    if sudo -u postgres psql -l | grep -q "^[[:space:]]*$target_db_name[[:space:]]"; then
+        log "⚠️  目标数据库 $target_db_name 已存在"
+        if [[ -t 0 ]]; then
+            read -p "是否删除现有数据库并重新创建？(y/N): " confirm
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                log "🗑️  删除现有数据库 $target_db_name..."
+                sudo -u postgres dropdb "$target_db_name" 2>/dev/null
+                log "✅ 现有数据库已删除"
+            else
+                log "❌ 用户取消操作"
+                rm -f "$temp_sql_file"
+                return 1
+            fi
+        else
+            log "🗑️  自动删除现有数据库 $target_db_name..."
+            sudo -u postgres dropdb "$target_db_name" 2>/dev/null
+            log "✅ 现有数据库已删除"
+        fi
+    fi
+    
+    # 导入数据库
+    log "🚀 开始导入数据库到 $target_db_name..."
+    
+    # 使用pg_restore或psql导入
+    if command -v pg_restore >/dev/null 2>&1; then
+        # 尝试使用pg_restore（更安全）
+        log "使用 pg_restore 导入..."
+        if sudo -u postgres pg_restore --create --clean --if-exists --dbname=postgres "$temp_sql_file" 2>/dev/null; then
+            log "✅ 数据库导入成功 (使用 pg_restore)"
+        else
+            log "⚠️  pg_restore 失败，尝试使用 psql..."
+            if sudo -u postgres psql -f "$temp_sql_file" 2>/dev/null; then
+                log "✅ 数据库导入成功 (使用 psql)"
+            else
+                error "❌ 数据库导入失败"
+                rm -f "$temp_sql_file"
+                return 1
+            fi
+        fi
+    else
+        # 使用psql导入
+        log "使用 psql 导入..."
+        if sudo -u postgres psql -f "$temp_sql_file" 2>/dev/null; then
+            log "✅ 数据库导入成功"
+        else
+            error "❌ 数据库导入失败"
+            rm -f "$temp_sql_file"
+            return 1
+        fi
+    fi
+    
+    # 清理临时文件
+    rm -f "$temp_sql_file"
+    
+    # 验证导入结果
+    log "🔍 验证导入结果..."
+    if sudo -u postgres psql -d "$target_db_name" -c "SELECT COUNT(*) FROM information_schema.tables;" 2>/dev/null | grep -q "[0-9]"; then
+        log "✅ 数据库 $target_db_name 验证成功"
+        
+        # 显示导入的数据库信息
+        log "📊 导入的数据库信息:"
+        local table_count=$(sudo -u postgres psql -d "$target_db_name" -c "SELECT COUNT(*) FROM information_schema.tables;" 2>/dev/null | tail -1 | tr -d ' ')
+        log "📋 表数量: $table_count"
+        
+        # 显示各表的记录数
+        local tables=$(sudo -u postgres psql -d "$target_db_name" -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public';" 2>/dev/null | grep -v tablename | grep -v "^$" | tr -d ' ')
+        for table in $tables; do
+            if [[ -n "$table" ]]; then
+                local record_count=$(sudo -u postgres psql -d "$target_db_name" -c "SELECT COUNT(*) FROM \"$table\";" 2>/dev/null | tail -1 | tr -d ' ')
+                log "   📊 表 $table: $record_count 条记录"
+            fi
+        done
+        
+    else
+        warn "⚠️ 数据库验证失败，请手动检查"
+    fi
+    
+    log "🎉 数据库导入完成！"
+    log "📱 数据库名称: $target_db_name"
+    log "💡 如需使用此数据库，请更新应用配置"
+    
+    return 0
 }
 
 # 修复数据库表结构
@@ -1672,6 +1771,7 @@ $PROJECT_NAME - 一键部署脚本
     export-db         导出数据库（包含结构和数据）
     import-db         导入数据库（从最新导出文件）
     backup-db         备份数据库（仅数据）
+    check-export      检查数据库导出文件信息
     configure-nginx   重新配置Nginx和SSL
     fix-permissions   修复所有权限问题
     help              显示此帮助信息
@@ -1682,6 +1782,7 @@ $PROJECT_NAME - 一键部署脚本
     $0 deploy          # 已有环境：一键完整部署
     $0 quick-deploy    # 日常使用：快速部署
     $0 export-db       # 导出数据库（迁移前）
+    $0 check-export    # 检查导出文件信息
     $0 import-db       # 导入数据库（迁移后）
     $0 backup-db       # 备份数据库数据
     $0 restart         # 重启服务
@@ -1845,6 +1946,15 @@ main() {
             log "💾 开始备份数据库..."
             backup_database
             log "数据库备份完成"
+            ;;
+        "check-export")
+            log "🔍 检查数据库导出文件..."
+            if [[ -f "check_database_name.py" ]]; then
+                python3 check_database_name.py
+            else
+                log "❌ 检查脚本不存在: check_database_name.py"
+            fi
+            log "导出文件检查完成"
             ;;
         "help"|*)
             show_help
