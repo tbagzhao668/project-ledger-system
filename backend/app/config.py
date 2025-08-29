@@ -18,8 +18,21 @@ class Settings(BaseSettings):
     PORT: int = 8000
     
     # 数据库配置
-    DATABASE_URL: str = "postgresql+asyncpg://ledger_user:ledger_user@localhost:5432/project_ledger"
-    DATABASE_URL_SYNC: str = "postgresql://ledger_user:ledger_user@localhost:5432/project_ledger"
+    DB_HOST: str = "localhost"
+    DB_PORT: int = 5432
+    DB_NAME: str = "fince_project_prod"
+    DB_USER: str = "fince_app_project"
+    DB_PASSWORD: str = "Fince_project_5%8*6^9(3#0)"
+    
+    @property
+    def DATABASE_URL(self) -> str:
+        """构建异步数据库URL"""
+        return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+    
+    @property
+    def DATABASE_URL_SYNC(self) -> str:
+        """构建同步数据库URL"""
+        return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
     
     # Redis配置
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -71,3 +84,13 @@ settings = Settings()
 if os.getenv("ENVIRONMENT") == "development":
     settings.DEBUG = True
     settings.LOG_LEVEL = "DEBUG"
+    
+    @property
+    def DATABASE_URL(self) -> str:
+        """构建异步数据库URL"""
+        return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+    
+    @property
+    def DATABASE_URL_SYNC(self) -> str:
+        """构建同步数据库URL"""
+        return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"

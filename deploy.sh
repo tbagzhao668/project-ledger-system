@@ -1275,7 +1275,7 @@ import_database() {
     log "🔍 分析导出文件中的数据库信息..."
     
     # 提取数据库名称
-    local source_db_name=$(grep -E "^CREATE DATABASE|^-- Database:" "$temp_sql_file" | head -1 | sed 's/.*"\([^"]*\)".*/\1/' | sed 's/.*Database: \([^[:space:]]*\).*/\1/')
+    local source_db_name=$(grep -E "^CREATE DATABASE" "$temp_sql_file" | head -1 | sed 's/.*CREATE DATABASE \([^[:space:]]*\).*/\1/' | sed 's/.*"\([^"]*\)".*/\1/')
     
     if [[ -z "$source_db_name" ]]; then
         # 如果无法从文件中提取，使用默认名称
@@ -1685,9 +1685,10 @@ log "   start-all-services.sh - 启动所有服务脚本"
 log "   generate_ssl_cert.sh  - SSL证书生成脚本"
 log "   init_database.sql     - 数据库初始化脚本"
 log "   check_database.sh     - 数据库检查脚本（一键检查状态）"
-log "   check_database_structure.py - 数据库结构检查脚本"
-log "   test_database_connection.py - 数据库连接测试脚本"
-log "   test_database_performance.py - 数据库性能测试脚本"
+                   log "   check_database_structure.py - 数据库结构检查脚本"
+                   log "   test_database_connection.py - 数据库连接测试脚本"
+                   log "   test_database_performance.py - 数据库性能测试脚本"
+                   log "   BASE_DATABASE_FULL.sql.gz   - 基准数据库文件（完整结构和数据）"
 log ""
 log "📖 详细文档："
 log "   DEPLOYMENT_GUIDE.md   - 完整部署指南"

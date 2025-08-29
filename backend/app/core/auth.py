@@ -14,8 +14,8 @@ from ..config import settings
 from ..models.user import User
 from .database import get_db
 
-# 密码加密上下文
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# 密码加密上下文 - 使用更兼容的配置
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
 # JWT Bearer认证
 security = HTTPBearer()

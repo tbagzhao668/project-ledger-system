@@ -11,7 +11,7 @@ from .api.v1.router import api_router
 from .core.database import db_manager
 
 # 配置日志
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # 创建FastAPI应用实例
