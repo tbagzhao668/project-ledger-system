@@ -1,183 +1,180 @@
-# 🏗️ 工程项目流水账管理系统
+# 工程项目流水账管理系统
 
-> 专业的多租户工程项目财务管理SaaS系统
-
-[![CI/CD](https://github.com/您的用户名/project-ledger-system/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/您的用户名/project-ledger-system/actions)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
-[![Vue.js](https://img.shields.io/badge/vue.js-3.x-green.svg)](https://vuejs.org/)
-
-## ✨ 功能特性
-
-- 🏢 **多租户架构** - 支持多个企业独立使用
-- 📊 **项目管理** - 完整的项目生命周期管理
-- 💰 **财务管理** - 收入、支出、预算、利润跟踪
-- 👥 **用户管理** - 角色权限、团队协作
-- 📈 **报表分析** - 数据可视化、趋势分析
-- 🔒 **安全可靠** - JWT认证、数据隔离、审计日志
-- 📱 **响应式设计** - 支持PC和移动设备
+一个基于FastAPI + Vue.js的现代化工程项目财务管理系统。
 
 ## 🚀 快速开始
 
-### 环境要求
+### 一键部署（推荐）
 
-- Python 3.12+
-- Node.js 18+
-- PostgreSQL 13+
-- Redis 6+
-
-### 安装部署
-
-1. **克隆仓库**
 ```bash
-git clone https://github.com/您的用户名/project-ledger-system.git
-cd project-ledger-system
+# 克隆项目
+git clone <repository-url>
+cd project-fince
+
+# 执行快速部署
+chmod +x quick_deploy.sh
+./quick_deploy.sh
 ```
 
-2. **后端设置**
+### 分步部署
+
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# 或 venv\Scripts\activate  # Windows
-pip install -r requirements.txt
-```
+# 1. 安装系统依赖
+sudo apt update
+sudo apt install -y postgresql postgresql-contrib redis-server nginx curl wget git
 
-3. **数据库设置**
-```bash
-# 创建数据库
-createdb project_ledger
+# 2. 安装Node.js
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
 
-# 运行迁移
-alembic upgrade head
-```
+# 3. 生成SSL证书
+sudo ./generate_ssl_cert.sh
 
-4. **前端设置**
-```bash
-cd frontend-new
-npm install
-npm run build
-```
+# 4. 初始化数据库
+sudo -u postgres psql -f init_database.sql
 
-5. **启动服务**
-```bash
-# 后端
-cd backend
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# 5. 部署应用
+./deploy.sh first-deploy
 
-# 前端 (生产环境使用Nginx)
-cd frontend-new
-npm run dev
+# 6. 启动服务
+./start-all-services.sh
 ```
 
 ## 📁 项目结构
 
 ```
-project-ledger-system/
-├── backend/                 # 后端API服务
-│   ├── app/                # 应用代码
-│   ├── alembic/           # 数据库迁移
-│   └── requirements.txt    # Python依赖
-├── frontend-new/           # 前端Vue.js应用
-│   ├── src/               # 源代码
-│   ├── public/            # 静态资源
-│   └── package.json       # Node.js依赖
-├── docs/                  # 项目文档
-├── scripts/               # 部署和工具脚本
-└── .github/               # GitHub配置
+project-fince/
+├── backend/                 # 后端Python代码
+├── frontend-new/           # 前端Vue.js代码
+├── backups/                # 数据库备份
+├── logs/                   # 日志文件
+├── nginx/                  # Nginx配置
+├── deploy.sh               # 主部署脚本
+├── quick_deploy.sh         # 快速部署脚本
+├── start-all-services.sh   # 服务启动脚本
+├── generate_ssl_cert.sh    # SSL证书生成脚本
+├── init_database.sql       # 数据库初始化脚本
+├── database_initial.sql.gz # 初始数据库导出
+├── nginx-site.conf         # Nginx站点配置
+├── fince-backend.service   # 后端系统服务文件
+├── DEPLOYMENT_GUIDE.md     # 完整部署指南
+└── 数据库迁移指南.md        # 数据库迁移说明
 ```
 
-## 🔧 技术栈
+## 🔧 脚本说明
 
-### 后端
-- **FastAPI** - 现代、快速的Web框架
-- **PostgreSQL** - 关系型数据库
-- **Redis** - 缓存和会话存储
-- **SQLAlchemy** - ORM框架
-- **Alembic** - 数据库迁移
-- **JWT** - 身份认证
+### 核心脚本
 
-### 前端
-- **Vue.js 3** - 渐进式JavaScript框架
-- **Vite** - 构建工具
-- **Element Plus** - UI组件库
-- **Axios** - HTTP客户端
-- **Pinia** - 状态管理
+| 脚本 | 用途 | 使用场景 |
+|------|------|----------|
+| `deploy.sh` | 主部署脚本 | 完整的系统部署和管理 |
+| `quick_deploy.sh` | 快速部署脚本 | 新环境一键部署 |
+| `start-all-services.sh` | 服务启动脚本 | 启动所有系统服务 |
+| `generate_ssl_cert.sh` | SSL证书生成 | 生成HTTPS证书 |
 
-### 部署
-- **Docker** - 容器化部署
-- **Nginx** - Web服务器和反向代理
-- **GitHub Actions** - CI/CD自动化
+### 数据库脚本
 
-## 📊 API文档
+| 脚本 | 用途 | 使用场景 |
+|------|------|----------|
+| `init_database.sql` | 数据库初始化 | 新环境数据库创建 |
+| `database_initial.sql.gz` | 初始数据库 | 包含基础表结构和数据 |
 
-- **开发环境**: http://localhost:8000/docs
-- **生产环境**: https://your-domain.com/docs
-- **OpenAPI规范**: http://localhost:8000/openapi.json
+### 配置文件
 
-## 🧪 测试
+| 文件 | 用途 | 说明 |
+|------|------|------|
+| `nginx-site.conf` | Nginx配置 | HTTPS站点配置 |
+| `fince-backend.service` | 系统服务 | 后端API服务管理 |
+
+## 🌐 访问地址
+
+- **前端应用**: https://localhost
+- **后端API**: https://localhost/api/v1
+- **健康检查**: https://localhost/health
+
+## 📊 系统架构
+
+- **前端**: Vue.js 3 + Vite
+- **后端**: FastAPI + Python 3.12
+- **数据库**: PostgreSQL 16
+- **缓存**: Redis
+- **Web服务器**: Nginx + HTTPS
+- **部署**: Systemd服务管理
+
+## 🗄️ 数据库管理
+
+### 主要表结构
+
+- **tenants**: 租户信息管理
+- **users**: 用户管理
+- **projects**: 工程项目管理
+- **categories**: 分类管理
+- **suppliers**: 供应商管理
+- **transactions**: 交易记录管理
+
+### 数据库操作
 
 ```bash
-# 后端测试
-cd backend
-pytest tests/ -v
+# 导出数据库
+./deploy.sh export-db
 
-# 前端测试
-cd frontend-new
-npm run test
+# 导入数据库
+./deploy.sh import-db
+
+# 备份数据库
+./deploy.sh backup-db
+
+# 修复数据库结构
+./deploy.sh fix-schema
 ```
 
-## 📦 部署
+## 📚 详细文档
 
-### Docker部署
+- [完整部署指南](DEPLOYMENT_GUIDE.md) - 详细的部署说明
+- [数据库迁移指南](数据库迁移指南.md) - 数据库迁移和备份说明
+
+## 🔒 安全说明
+
+- 系统使用自签名SSL证书
+- 生产环境请使用受信任的CA证书
+- 默认数据库密码为 `postgres`，生产环境请修改
+
+## 🚨 故障排除
+
+### 常见问题
+
+1. **端口冲突**: 使用 `sudo pkill -f uvicorn` 停止冲突进程
+2. **数据库连接失败**: 检查PostgreSQL服务状态
+3. **Nginx配置错误**: 使用 `sudo nginx -t` 测试配置
+4. **SSL证书问题**: 重新运行 `sudo ./generate_ssl_cert.sh`
+
+### 日志查看
+
 ```bash
-docker-compose up -d
+# 后端日志
+sudo journalctl -u fince-backend.service -f
+
+# Nginx日志
+sudo tail -f /var/log/nginx/fince-project.access.log
+sudo tail -f /var/log/nginx/fince-project.error.log
 ```
 
-### 手动部署
-```bash
-# 使用部署脚本
-./scripts/deploy.sh
-```
+## 🤝 技术支持
 
-## 🔒 安全
+如遇到问题，请检查：
+1. 系统日志
+2. 服务状态
+3. 配置文件
+4. 网络连接
 
-- JWT令牌认证
-- 密码哈希加密
-- SQL注入防护
-- XSS防护
-- CSRF防护
-- 数据隔离
+## 📝 更新日志
 
-## 📈 监控
-
-- 系统健康检查
-- 性能监控
-- 错误日志
-- 用户行为分析
-
-## 🤝 贡献
-
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
-
-## 📞 支持
-
-- 📧 邮箱: support@project-ledger.com
-- 🐛 问题反馈: [GitHub Issues](https://github.com/您的用户名/project-ledger-system/issues)
-- 📖 文档: [项目Wiki](https://github.com/您的用户名/project-ledger-system/wiki)
-
-## 🙏 致谢
-
-感谢所有为这个项目做出贡献的开发者和用户！
+- **v1.0.0** (2025-08-29): 初始版本发布
+  - 完整的工程项目管理系统
+  - 支持HTTPS访问
+  - 自动化部署脚本
+  - 数据库导入导出功能
 
 ---
 
-**⭐ 如果这个项目对您有帮助，请给我们一个星标！**
+**注意**: 此系统仅供学习和测试使用，生产环境请做好安全配置。
